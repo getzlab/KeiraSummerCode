@@ -1,0 +1,165 @@
+import plotly.express as px
+import plotly.graph_objects as go
+import matplotlib.pyplot as plt
+import matplotlib
+import numpy as np
+import pandas as pd
+import matplotlib.patches as mpatches
+import matplotlib.colors as mpcolor
+import matplotlib.cm as cm
+from matplotlib.lines import Line2D
+import math
+import plotly.graph_objects as go
+
+def treatment_process_centered(filename, filename2):
+
+    df = pd.read_csv(filename, sep=',')
+    df2=pd.read_csv(filename2, sep='\t')
+    df=pd.merge(df,df2, on='participant_id', how='inner')
+    print(df)
+    patient_val = df['participant_id'].tolist()
+    treatment_val = df['categories'].tolist()
+    tx_start = df['start_date_dfd'].tolist()
+    tx_end = df['stop_date_dfd'].tolist()
+    stop_reason=df['stop_reason'].tolist()
+    tumor_morph=df['tumor_morphology'].tolist()
+    drug_type=df['drugs'].tolist()
+    
+    new_dict = {'patient': patient_val,
+               'treatment': treatment_val,
+               'tx_start': tx_start,
+               'tx_end': tx_end,
+               'stop':stop_reason,
+               'morph':tumor_morph,
+               'drug':drug_type}
+    
+    return new_dict
+
+    
+def generate_patientYpos(patient_DF):
+    """
+    Return a dictionary with unique patients as keys, and 
+    y positions as values, for plotting. Assumes the column with 
+    the patient names is called "patient"
+    """
+    
+    patient_ids=list(patient_DF['patient'])
+    y_pos={}
+    new_pos=0000
+    
+    for patient_name in patient_ids:
+        if patient_name not in y_pos:
+            new_pos=new_pos+1
+            y_pos[patient_name]=new_pos
+    
+    return y_pos
+treats=pd.DataFrame(treatment_process_centered('Juric_Rapid_Autopsy_MASTER-treatments1.csv', 'Juric_Rapid_Autopsy_MASTER-participants.txt'))
+treats['tx_end'] = pd.to_numeric(treats['tx_end'], errors='coerce')
+xmax = math.ceil(treats['tx_end'].max())
+
+
+
+patient_pos=generate_patientYpos(treats)
+drugtype = treats['drug'].unique()
+patients = treats['patient'].unique()
+
+
+
+plt.rcParams.update({'font.size': 14})
+plt.rcParams['svg.fonttype'] = 'none'
+
+
+fig = go.Figure()
+
+drug_colors = px.colors.qualitative.Alphabet
+colorpal = dict(zip(treats['drug'].unique(), drug_colors))
+    
+for idx, row in treats.iterrows():
+    y_pos = patient_pos[row["patient"]]
+
+    fig.add_trace(go.Scatter(
+        x=[row['tx_start'], row['tx_end']],
+        y=[row['patient'], row['patient']],
+        mode='lines',
+        line=dict(color=colorpal.get(row['drug']), width=10),
+        hoverinfo='text',
+        name=row['drug'],
+        text=f"Patient: {row['patient']}<br>Drug: {row['drug']}<br>Start: {row['tx_start']}<br>End: {row['tx_end']}<br>Stop: {row['stop']}<br>Morph: {row['morph']}"
+    ))
+
+stop_marker_styles = {
+    'Progression and relapse': dict(color='red', symbol='circle', size=10),
+    'Completion of standard course': dict(color='black', symbol='triangle-down', size=10),
+    'Toxicity': dict(color='green', symbol='triangle-down', size=10),
+    'Other': dict(color='gray', symbol='circle', size=10)
+}
+
+for idx, row in treats.iterrows():
+    stop = row['stop']
+    if stop in stop_marker_styles:
+        style = stop_marker_styles[stop]
+        fig.add_trace(go.Scatter(
+            x=[row['tx_end']],
+            y=[row['patient']],
+            mode='markers',
+            marker=dict(color=style['color'], symbol=style['symbol'], size=style['size']),
+            name=stop,
+            hoverinfo='text',
+            text=f"Stop Reason: {stop}<br>Morph: {row['morph']}",
+            showlegend=False  # handle legend separately as before
+        ))
+
+morph_options = treats['morph'].dropna().unique()
+buttons = []
+for morph in morph_options:
+    visibility = []
+    for trace in fig.data:
+        if trace.text and morph.lower() in str(trace.text).lower():
+            visibility.append(True)
+        else:
+            visibility.append(False)
+    buttons.append(dict(
+        label=morph,
+        method='update',
+        args=[{'visible': visibility},
+              {'title': dict(
+                  text=f'Drug Progression in Rapid Autopsy Data of {morph} Patients',
+                  x=0.5,
+                  xanchor='center',
+                  font=dict(size=20)
+              )}]
+    ))
+
+
+
+       
+fig.update_layout(
+     title=dict(
+        text='Drug Progression in Rapid Autopsy Data',
+        x=0.5, 
+        xanchor='center',
+        font=dict(size=20) 
+    ),
+    xaxis_title='Time (Days)',
+    yaxis_title='Patient',
+    yaxis=dict(type='category'),
+    legend_title='Drug / Stop Reason',
+    height=600,
+    hovermode='closest'
+)
+
+fig.update_layout(
+    updatemenus=[dict(
+        active=0,
+        buttons=buttons,
+        direction="down",
+        showactive=True,
+        x=0.0,
+        y=1.15,
+        xanchor="left",
+        yanchor="top"
+    )]
+   
+)
+
+fig.write_html("interactive_drug_progression_plot.html")
