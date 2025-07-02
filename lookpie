@@ -1,0 +1,59 @@
+import plotly.express as px
+import plotly.graph_objects as go
+import plotly.io as pio
+import matplotlib.pyplot as plt
+import matplotlib
+import numpy as np
+import pandas as pd
+import matplotlib.patches as mpatches
+import matplotlib.colors as mpcolor
+import matplotlib.cm as cm
+from matplotlib.lines import Line2D
+import math
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
+
+df = pd.read_csv('Juric_Rapid_Autopsy_MASTER-treatments1.csv', sep=',')
+df2=pd.read_csv('Juric_Rapid_Autopsy_MASTER-participants.txt', sep='\t')
+df=pd.merge(df,df2, on='participant_id', how='inner')
+
+
+
+genderlabels=df['gender'].unique().tolist()
+gendervalues = df['gender'].value_counts().tolist()
+
+racelabels=df['race'].unique().tolist()
+racevalues = df['race'].value_counts().tolist()
+
+vitallabels=df['vital_status'].unique().tolist()
+vitalvalues = df['vital_status'].value_counts().tolist()
+
+catlabels=df['categories'].unique().tolist()
+catvalues=df['categories'].value_counts().tolist()
+
+fig =make_subplots(rows=2, cols=2, specs=[[{'type':'domain'}, {'type':'domain'}],[{'type':'domain'},{'type':'domain'}]])
+                   
+fig.add_trace(go.Pie(labels=genderlabels, values=gendervalues, name="Gender"),
+              1, 1)
+fig.add_trace(go.Pie(labels=racelabels, values=racevalues, name="Race"),
+              1, 2)
+fig.add_trace(go.Pie(labels=vitallabels, values=vitalvalues, name="Vitals"),
+              2, 1)
+fig.add_trace(go.Pie(labels=catlabels, values=catvalues, name="Cat"),
+              2, 2)
+
+
+fig.update_traces(hole=.4, hoverinfo="label+percent+name")
+
+fig.update_layout(
+    title_text="Demographic Distributions",
+    annotations=[dict(text='Gender', x=0.225, y=0.83,
+                      font_size=15, showarrow=False, xanchor="center"),
+                 dict(text='Race', x=0.775, y=0.83,
+                      font_size=15, showarrow=False, xanchor="center"),
+                 dict(text='Status', x=0.225, y=0.21,
+                      font_size=15, showarrow=False, xanchor="center"),
+                 dict(text='Category', x=0.775, y=0.21,
+                      font_size=15, showarrow=False, xanchor="center")],
+    showlegend=False)
+fig.write_html('newpieplot.html')
