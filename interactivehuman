@@ -1,0 +1,113 @@
+import matplotlib.pyplot as plt
+import pyanatomogram
+import plotly.graph_objects as go
+from PIL import Image
+import plotly.io as pio
+    
+
+
+
+
+fig,ax=plt.subplots(figsize=(6,10))
+anatomogram2 = pyanatomogram.Anatomogram('homo_sapiens.female')
+anatomogram2.highlight_tissues({'heart': 18, 'lung': 2, 'brain': 3, 'colon': 1, 'liver': 4, 'breast':5, 
+                                'stomach':6,'esophagus':7, 'ovary':8, 'uterus':9, 'pancreas':10, 
+                                'lymph node':11,'gall bladder':12,'thyroid gland':13,'kidney':14,
+                               'uterine cervix':15, 'bronchus':16}, cmap='twilight_shifted')
+anatomogram2.to_matplotlib(ax=ax)
+
+
+annotations = {
+    'lung': ((0, 0), (48, 44)),
+    'heart': ((0, 10), (52, 48)),
+    'brain': ((25, 0), (50, 5)),
+    'colon': ((0,95), (43, 85)),
+    'liver': ((0, 53), (43, 65)),
+    'breast': ((100, 30), (62, 50)),
+    'stomach': ((100, 62), (51, 70)),
+    'esophagus': ((80, 20), (51, 40)),
+    'ovary': ((95, 78), (50.5, 88.5)),
+    'uterus': ((90, 88), (58, 90.75)),
+    'pancreas': ((93, 50), (62, 64)),
+    'lymph node': ((75, 0), (56, 27)),
+    'gall bladder':((0,62),(49,70)),
+    'thyroid gland':((22,10),(52,31)),
+    'kidney':((0,85),(45,72))
+}
+
+for organ, ((x_text, y_text), (x_arrow, y_arrow)) in annotations.items():
+    ax.annotate(
+        organ.capitalize(),
+        xy=(x_arrow, y_arrow),
+        xytext=(x_text, y_text),
+        arrowprops=dict(facecolor='black', arrowstyle='->'),
+        bbox=dict(boxstyle='round,pad=0.3', fc='white', ec='black', lw=1),
+        fontsize=8
+    )
+    
+fig.savefig('highlighted_woman.png')
+
+img=Image.open('highlighted_woman.png')
+w,h= img.size
+print(f"Width: {w}, Height: {h}")
+
+annotations={
+    'lung':(48,44),
+    'heart':(52,48),
+    'brain':(290,140),
+    'colon':(43,85),
+    'liver':(43,65),
+    'breast':(62,50),
+    'stomach':(51,70),
+    'esophagus':(308,275),
+    'ovary':(50.5,88.5),
+    'uterus': (58, 90.75),
+    'pancreas': (62, 64),
+    'lymph node':(325, 220),
+    'gall bladder':(49,70),
+    'thyroid gland':(297,240),
+    'kidney':(45,72),
+}
+
+
+fig=go.Figure()
+
+fig.add_layout_image(
+    dict(
+        source=img,
+        xref='x', yref='y',
+        x=0, y=h,
+        sizex=w, sizey=h,
+        sizing="stretch",
+        layer="below"
+    )
+)
+
+for organ, (x, y) in annotations.items():
+    fig.add_trace(go.Scatter(
+        x=[x],
+        y=[h - y], 
+        mode="markers+text",
+        text=organ,
+        textposition="top center",
+        marker=dict(size=8, color="crimson"),
+        hoverinfo="text",
+        name=organ
+    ))
+
+
+fig.update_layout(
+    width=w, height=h,
+    xaxis=dict(visible=False, range=[0, w]),
+    yaxis=dict(visible=False, range=[0, h]),
+    margin=dict(l=0, r=0, t=0, b=0),
+    clickmode='event+select',
+    title=dict(
+        text="Human Female Anatomy (Interactive)",
+        x=0.5,
+        xanchor='center'
+    )
+)
+
+
+fig.write_html("interactive_anatomy_plot.html")
