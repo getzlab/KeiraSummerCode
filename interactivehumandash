@@ -1,0 +1,184 @@
+import dash
+from dash import html, dcc, Input, Output
+import plotly.graph_objects as go
+from PIL import Image
+import base64
+import io
+import matplotlib.pyplot as plt
+import pyanatomogram
+import pandas as pd
+import numpy as np
+
+fig,ax=plt.subplots(figsize=(6,10))
+anatomogram2 = pyanatomogram.Anatomogram('homo_sapiens.female')
+anatomogram2.highlight_tissues({'heart': 18, 'lung': 2, 'brain': 3, 'colon': 1, 'liver': 4, 'breast':5, 
+                                'stomach':6,'esophagus':7, 'ovary':8, 'uterus':9, 'pancreas':10, 
+                                'lymph node':11,'gall bladder':12,'thyroid gland':13,'kidney':14,
+                               'uterine cervix':15, 'bronchus':16, 'skin':17}, cmap='twilight_shifted')
+anatomogram2.to_matplotlib(ax=ax)
+
+
+annotations = {
+    'lung': ((0, 0), (48, 44)),
+    'heart': ((0, 10), (52, 48)),
+    'brain': ((25, 0), (50, 5)),
+    'colon': ((0,95), (43, 85)),
+    'liver': ((0, 53), (43, 65)),
+    'breast': ((100, 30), (62, 50)),
+    'stomach': ((100, 62), (51, 70)),
+    'esophagus': ((80, 20), (51, 40)),
+    'uterus': ((95, 78), (50.5, 88.5)),
+    'ovary': ((90, 88), (58, 90.75)),
+    'pancreas': ((93, 50), (62, 64)),
+    'lymph node': ((75, 0), (56, 27)),
+    'gall bladder':((0,62),(49,70)),
+    'thyroid gland':((22,10),(52,31)),
+    'kidney':((0,85),(45,72)),
+    'skin':((0,100),(40,110))
+}
+
+for organ, ((x_text, y_text), (x_arrow, y_arrow)) in annotations.items():
+    ax.annotate(
+        organ.capitalize(),
+        xy=(x_arrow, y_arrow),
+        xytext=(x_text, y_text),
+        arrowprops=dict(facecolor='black', arrowstyle='->'),
+        bbox=dict(boxstyle='round,pad=0.3', fc='white', ec='black', lw=1),
+        fontsize=8
+    )
+    
+fig.savefig('highlighted_woman.png')
+img = Image.open('highlighted_woman.png')
+w, h = img.size
+
+
+tumordata = pd.read_csv('Juric_Rapid_Autopsy_MASTER-participants.csv', sep='\t')
+
+conditions = [
+    (tumordata['tumor_primary_site'] == 'BREAST (C50)'),
+    (tumordata['tumor_primary_site'] == 'COLON (C18)'),
+    (tumordata['tumor_primary_site'] == 'BRONCHUS AND LUNG (C34)'),
+    (tumordata['tumor_primary_site'] == 'CORPUS UTERI (C54)'),
+    (tumordata['tumor_primary_site'] == 'ESOPHAGUS (C15)'),
+    (tumordata['tumor_primary_site'] == 'GALLBLADDER (C23)'),
+    (tumordata['tumor_primary_site'] == 'KIDNEY (C64)'),
+    (tumordata['tumor_primary_site'] == 'LIVER AND INTRAHEPATIC BILE DUCTS (C22)'),
+    (tumordata['tumor_primary_site'] == 'LYMPH NODES (C77)'),
+    (tumordata['tumor_primary_site'] == 'OTHER AND UNSPECIFIED PARTS OF BILIARY TRACT (C24)'),
+    (tumordata['tumor_primary_site'] == 'OVARY (C56)'),
+    (tumordata['tumor_primary_site'] == 'PANCREAS (C25)'),
+    (tumordata['tumor_primary_site'] == 'SKIN(C44)'),
+    (tumordata['tumor_primary_site'] == 'STOMACH (C16))'),
+    (tumordata['tumor_primary_site'] == 'THYROID GLAND (C73)'),
+    (tumordata['tumor_primary_site'] == 'URETER (C66)'),
+    (tumordata['tumor_primary_site'] == 'PROSTATE GLAND (C61)'),
+]
+values = ['breast', 'colon', 'lung', 'uterus', 'esophagus','gall bladder','kidney','liver','lymph node','other','ovary','pancreas','skin','stomach','thyroid gland', 'other', 'other']
+
+tumordata['organs'] = np.select(conditions, values, default='Fail')
+
+
+organ_data = {
+    'thyroid gland': [10, 15, 12],
+    'esophagus': [8, 9, 6],
+    'brain': [25, 20, 30],
+    'lymph node': [6, 7, 8],
+    'lung': [15, 18, 14],
+    'heart': [20, 22, 25],
+    'colon': [9, 10, 11],
+    'liver': [18, 20, 19],
+    'breast': [13, 14, 15],
+    'stomach': [12, 11, 13],
+    'uterus': [16, 14, 17],
+    'ovary': [9, 10, 8],
+    'pancreas': [7, 8, 9],
+    'gall bladder': [6, 5, 7],
+    'kidney': [11, 12, 10],
+    'skin': [14, 13, 15],
+}
+
+annotations = {
+    'thyroid gland': (299, 240),
+    'esophagus': (308, 275),
+    'brain': (290, 139),
+    'lymph node': (325, 222),
+    'lung': (285, 290),
+    'heart': (300, 304),
+    'colon': (270, 465),
+    'liver': (266, 375),
+    'breast': (345, 315),
+    'stomach': (312, 395),
+    'uterus': (305, 470),
+    'ovary': (332, 480),
+    'pancreas': (347, 372),
+    'gall bladder': (290, 395),
+    'kidney': (273, 405),
+    'skin': (255, 553)
+}
+
+buffer = io.BytesIO()
+img.save(buffer, format="PNG")
+encoded_image = base64.b64encode(buffer.getvalue()).decode()
+
+scatter_fig = go.Figure()
+scatter_fig.add_layout_image(
+    dict(
+        source=f"data:image/png;base64,{encoded_image}",
+        xref='x', yref='y',
+        x=0, y=h,
+        sizex=w, sizey=h,
+        sizing="stretch",
+        layer="below"
+    )
+)
+
+for organ, (x, y) in annotations.items():
+    scatter_fig.add_trace(go.Scatter(
+        x=[x],
+        y=[h - y],
+        mode="markers",
+        marker=dict(size=5, color="black"),
+        name=organ,
+        text=organ,
+        hoverinfo="text",
+        customdata=[organ]
+    ))
+
+scatter_fig.update_layout(
+    showlegend=False,
+    width=w,
+    height=h,
+    xaxis=dict(visible=False, range=[0, w]),
+    yaxis=dict(visible=False, range=[0, h]),
+    margin=dict(l=0, r=0, t=0, b=0),
+    clickmode='event+select'
+)
+
+app = dash.Dash(__name__)
+app.title = "Interactive Organ Data"
+
+app.layout = html.Div([
+    html.H2("Click on an organ to view tumor information"),
+    dcc.Graph(id='anatomy-plot', figure=scatter_fig, style={"marginBottom": "50px"}),
+    dcc.Graph(id='organ-data-plot')
+])
+
+@app.callback(
+    Output('organ-data-plot', 'figure'),
+    Input('anatomy-plot', 'clickData')
+)
+def display_organ_data(clickData):
+    try:
+        organ = clickData['points'][0]['customdata']
+        y_data = organ_data.get(organ, [])
+        if y_data:
+            return go.Figure(
+                data=[go.Bar(x=['A', 'B', 'C'], y=y_data)],
+                layout=go.Layout(title=f'Data for {organ.capitalize()}'))
+    except (TypeError, KeyError, IndexError, AttributeError):
+        pass
+    
+    return go.Figure(layout=go.Layout(title="Click on an organ to view tumor information"))
+
+if __name__ == '__main__':
+    app.run(debug=True)
