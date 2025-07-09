@@ -1,4 +1,5 @@
 import dash
+import matplotlib
 from dash import html, dcc, Input, Output
 import plotly.graph_objects as go
 from PIL import Image
@@ -8,8 +9,70 @@ import matplotlib.pyplot as plt
 import pyanatomogram
 import pandas as pd
 import numpy as np
+from plotly.subplots import make_subplots
+import plotly.graph_objects as go
+matplotlib.use('Agg')
+def treatment_process_centered(filename, filename2):
 
+    df = pd.read_csv(filename, sep=',')
+    df2=pd.read_csv(filename2, sep='\t')
+    df=pd.merge(df,df2, on='participant_id', how='inner')
+    print(df)
+    patient_val = df['participant_id'].tolist()
+    treatment_val = df['categories'].tolist()
+    tx_start = df['start_date_dfd'].tolist()
+    tx_end = df['stop_date_dfd'].tolist()
+    stop_reason=df['stop_reason'].tolist()
+    tumor_morph=df['tumor_morphology'].tolist()
+    drug_type=df['drugs'].tolist()
+    bio_count = pd.to_numeric(df['biospecimen_total_count'], errors='coerce').tolist()
+    treat_count = pd.to_numeric(df['treatment_count'], errors='coerce').tolist()
+    prim_site=df['tumor_primary_site'].tolist()
+
+    
+    new_dict = {'patient': patient_val,
+               'treatment': treatment_val,
+               'tx_start': tx_start,
+               'tx_end': tx_end,
+               'stop':stop_reason,
+               'morph':tumor_morph,
+               'drug':drug_type,
+               'biocount':bio_count,
+               'treatcount':treat_count,
+               'site':prim_site}
+    return new_dict
+
+tumordata=pd.DataFrame(treatment_process_centered('Juric_Rapid_Autopsy_MASTER-treatments1.csv', 'Juric_Rapid_Autopsy_MASTER-participants.txt'))
+
+conditions = [
+    (tumordata['site'] == 'BREAST (C50)'),
+    (tumordata['site'] == 'COLON (C18)'),
+    (tumordata['site'] == 'BRONCHUS AND LUNG (C34)'),
+    (tumordata['site'] == 'CORPUS UTERI (C54)'),
+    (tumordata['site'] == 'ESOPHAGUS (C15)'),
+    (tumordata['site'] == 'GALLBLADDER (C23)'),
+    (tumordata['site'] == 'KIDNEY (C64)'),
+    (tumordata['site'] == 'LIVER AND INTRAHEPATIC BILE DUCTS (C22)'),
+    (tumordata['site'] == 'LYMPH NODES (C77)'),
+    (tumordata['site'] == 'OTHER AND UNSPECIFIED PARTS OF BILIARY TRACT (C24)'),
+    (tumordata['site'] == 'OVARY (C56)'),
+    (tumordata['site'] == 'PANCREAS (C25)'),
+    (tumordata['site'] == 'SKIN (C44)'),
+    (tumordata['site'] == 'STOMACH (C16))'),
+    (tumordata['site'] == 'THYROID GLAND (C73)'),
+    (tumordata['site'] == 'URETER (C66)'),
+    (tumordata['site'] == 'PROSTATE GLAND (C61)'),
+]
+values = ['breast', 'colon', 'lung', 'uterus', 'esophagus','gall bladder','kidney','liver','lymph node','other','ovary','pancreas','skin','stomach','thyroid gland', 'other', 'other']
+
+tumordata['organs'] = np.select(conditions, values, default='Fail')
 fig,ax=plt.subplots(figsize=(6,10))
+
+allorgans={'heart': 18, 'lung': 2, 'brain': 3, 'colon': 1, 'liver': 4, 'breast':5, 
+            'stomach':6,'esophagus':7, 'ovary':8, 'uterus':9, 'pancreas':10, 
+            'lymph node':11,'gall bladder':12,'thyroid gland':13,'kidney':14,
+            'uterine cervix':15, 'bronchus':16, 'skin':17 }
+
 anatomogram2 = pyanatomogram.Anatomogram('homo_sapiens.female')
 anatomogram2.highlight_tissues({'heart': 18, 'lung': 2, 'brain': 3, 'colon': 1, 'liver': 4, 'breast':5, 
                                 'stomach':6,'esophagus':7, 'ovary':8, 'uterus':9, 'pancreas':10, 
@@ -47,57 +110,13 @@ for organ, ((x_text, y_text), (x_arrow, y_arrow)) in annotations.items():
         fontsize=8
     )
     
-fig.savefig('highlighted_woman.png')
-img = Image.open('highlighted_woman.png')
+buf = io.BytesIO()
+fig.savefig(buf, format='png')
+buf.seek(0)
+img = Image.open(buf)
 w, h = img.size
 
-
-tumordata = pd.read_csv('Juric_Rapid_Autopsy_MASTER-participants.csv', sep='\t')
-
-conditions = [
-    (tumordata['tumor_primary_site'] == 'BREAST (C50)'),
-    (tumordata['tumor_primary_site'] == 'COLON (C18)'),
-    (tumordata['tumor_primary_site'] == 'BRONCHUS AND LUNG (C34)'),
-    (tumordata['tumor_primary_site'] == 'CORPUS UTERI (C54)'),
-    (tumordata['tumor_primary_site'] == 'ESOPHAGUS (C15)'),
-    (tumordata['tumor_primary_site'] == 'GALLBLADDER (C23)'),
-    (tumordata['tumor_primary_site'] == 'KIDNEY (C64)'),
-    (tumordata['tumor_primary_site'] == 'LIVER AND INTRAHEPATIC BILE DUCTS (C22)'),
-    (tumordata['tumor_primary_site'] == 'LYMPH NODES (C77)'),
-    (tumordata['tumor_primary_site'] == 'OTHER AND UNSPECIFIED PARTS OF BILIARY TRACT (C24)'),
-    (tumordata['tumor_primary_site'] == 'OVARY (C56)'),
-    (tumordata['tumor_primary_site'] == 'PANCREAS (C25)'),
-    (tumordata['tumor_primary_site'] == 'SKIN(C44)'),
-    (tumordata['tumor_primary_site'] == 'STOMACH (C16))'),
-    (tumordata['tumor_primary_site'] == 'THYROID GLAND (C73)'),
-    (tumordata['tumor_primary_site'] == 'URETER (C66)'),
-    (tumordata['tumor_primary_site'] == 'PROSTATE GLAND (C61)'),
-]
-values = ['breast', 'colon', 'lung', 'uterus', 'esophagus','gall bladder','kidney','liver','lymph node','other','ovary','pancreas','skin','stomach','thyroid gland', 'other', 'other']
-
-tumordata['organs'] = np.select(conditions, values, default='Fail')
-
-
-organ_data = {
-    'thyroid gland': [10, 15, 12],
-    'esophagus': [8, 9, 6],
-    'brain': [25, 20, 30],
-    'lymph node': [6, 7, 8],
-    'lung': [15, 18, 14],
-    'heart': [20, 22, 25],
-    'colon': [9, 10, 11],
-    'liver': [18, 20, 19],
-    'breast': [13, 14, 15],
-    'stomach': [12, 11, 13],
-    'uterus': [16, 14, 17],
-    'ovary': [9, 10, 8],
-    'pancreas': [7, 8, 9],
-    'gall bladder': [6, 5, 7],
-    'kidney': [11, 12, 10],
-    'skin': [14, 13, 15],
-}
-
-annotations = {
+annotations2 = {
     'thyroid gland': (299, 240),
     'esophagus': (308, 275),
     'brain': (290, 139),
@@ -132,7 +151,7 @@ scatter_fig.add_layout_image(
     )
 )
 
-for organ, (x, y) in annotations.items():
+for organ, (x, y) in annotations2.items():
     scatter_fig.add_trace(go.Scatter(
         x=[x],
         y=[h - y],
@@ -154,31 +173,198 @@ scatter_fig.update_layout(
     clickmode='event+select'
 )
 
+def make_figure_with_background(base64_img):
+    fig = go.Figure()
+    
+    # Add the background image
+    fig.add_layout_image(
+        dict(
+            source=f"data:image/png;base64,{base64_img}",
+            xref="x",
+            yref="y",
+            x=0,
+            y=600, 
+            sizex=400,
+            sizey=600,
+            sizing="stretch",
+            layer="below"
+        )
+    )
+    
+    fig.update_layout(
+        width=400,
+        height=600,
+        xaxis=dict(visible=False, range=[0, 400]),
+        yaxis=dict(visible=False, range=[0, 600]),
+        margin=dict(l=0, r=0, t=0, b=0),
+        dragmode=False,
+        clickmode='event+select',
+        showlegend=False
+    )
+    
+    return fig
+
 app = dash.Dash(__name__)
 app.title = "Interactive Organ Data"
 
 app.layout = html.Div([
-    html.H2("Click on an organ to view tumor information"),
-    dcc.Graph(id='anatomy-plot', figure=scatter_fig, style={"marginBottom": "50px"}),
-    dcc.Graph(id='organ-data-plot')
-])
+    html.H2("Select a Patient to view tumor distribution"),
+    dcc.Dropdown(
+        id='patient-dropdown',
+        options=[{'label': pid, 'value': pid} for pid in sorted(tumordata['patient'].unique())],
+        placeholder="Select a patient",
+        style={'width':'300px','marginBottom':'20px'}
+    ),
+    html.Div([
+        html.Div([
+            dcc.Graph(id='anatomy-plot', figure=scatter_fig)
+            ], style={'flex': '1', 'marginRight': '20px'}),
+        html.Div([
+            dcc.Graph(id='organ-data-plot')
+        ], style={'flex': '1'})
+        
+        ], style={'display': 'flex', 'flexDirection': 'row'})
+    ])
+
+@app.callback(
+    Output('anatomy-plot', 'figure'),
+    Input('patient-dropdown', 'value')
+)
+
+def update_anatomy_figure(selected_patient):
+    if not selected_patient:
+        return make_figure_with_background(encoded_image)
+
+    buf = io.BytesIO()
+
+
+    fig, ax = plt.subplots(figsize=(6, 10))
+    anatomogram = pyanatomogram.Anatomogram('homo_sapiens.female')
+
+    patient_organs = tumordata[tumordata['patient'] == selected_patient]['organs'].unique().tolist()
+    highlight_organs = {organ: allorgans[organ] for organ in patient_organs if organ in allorgans}
+    anatomogram.highlight_tissues(highlight_organs, cmap='twilight_shifted')
+    anatomogram.to_matplotlib(ax=ax)
+
+ 
+    plt.savefig(buf, format='png')
+    plt.close(fig)
+    buf.seek(0)
+    img = Image.open(buf)
+    w, h = img.size
+    img_str = base64.b64encode(buf.getvalue()).decode()
+
+    
+    fig_out = go.Figure()
+
+    fig_out.add_layout_image(
+        dict(
+            source=f"data:image/png;base64,{img_str}",
+            xref="x", yref="y",
+            x=0, y=h,
+            sizex=w, sizey=h,
+            sizing="stretch",
+            layer="below"
+        )
+    )
+
+
+    for organ, (x, y_pixel) in annotations2.items():
+        if organ in highlight_organs:
+            fig_out.add_trace(go.Scatter(
+                x=[x],
+                y=[h - y_pixel],
+                mode='markers',
+                marker=dict(size=8, color='white'),
+                name=organ,
+                text=organ,
+                hoverinfo='text',
+                customdata=[organ]
+            ))
+
+    fig_out.update_layout(
+        width=w,
+        height=h,
+        xaxis=dict(visible=False, range=[0, w]),
+        yaxis=dict(visible=False, range=[0, h]),
+        margin=dict(l=0, r=0, t=0, b=0),
+        dragmode=False,
+        clickmode='event+select',
+        showlegend=False
+    )
+
+    return fig_out
+
 
 @app.callback(
     Output('organ-data-plot', 'figure'),
-    Input('anatomy-plot', 'clickData')
+    [Input('anatomy-plot', 'clickData'),
+    Input('patient-dropdown', 'value')]
 )
-def display_organ_data(clickData):
-    try:
-        organ = clickData['points'][0]['customdata']
-        y_data = organ_data.get(organ, [])
-        if y_data:
-            return go.Figure(
-                data=[go.Bar(x=['A', 'B', 'C'], y=y_data)],
-                layout=go.Layout(title=f'Data for {organ.capitalize()}'))
-    except (TypeError, KeyError, IndexError, AttributeError):
-        pass
+
+def display_organ_data(clickData, selected_patientc):
+
     
+    if clickData is None:
+        return go.Figure(layout=go.Layout(title="Click on an organ to view tumor information"))
+
+    organ = clickData['points'][0]['customdata']
+    filtered_df = tumordata[tumordata['organs'] == organ].copy()
+
+    filtered_df['biocount'] = pd.to_numeric(filtered_df['biocount'], errors='coerce')
+    filtered_df['treatcount'] = pd.to_numeric(filtered_df['treatcount'], errors='coerce')
+    filtered_df = filtered_df.dropna(subset=['biocount', 'treatcount'])
+
+    if filtered_df.empty:
+        return go.Figure(layout=go.Layout(title=f"No tumor data available for {organ.capitalize()}"))
+
+    category_counts = filtered_df['treatment'].value_counts()
+    if category_counts.empty:
+        return go.Figure(layout=go.Layout(title=f"No treatment categories found for {organ.capitalize()}"))
+
+
+    fig = make_subplots(
+        rows=1, cols=2,
+        subplot_titles=("Biospecimen vs Treatment Count", "Treatment Categories"),
+        specs=[[{"type": "scatter"}, {"type": "domain"}]]
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=filtered_df['biocount'],
+            y=filtered_df['treatcount'],
+            mode='markers',
+            marker=dict(size=10, color='seagreen'),
+            name='Bio vs Treat Count',
+            hovertemplate="Biospecimen Count: %{x}<br>Treatment Count: %{y}<extra></extra>"
+        ),
+        row=1, col=1
+    )
+
+    fig.add_trace(
+        go.Pie(
+            labels=category_counts.index,
+            values=category_counts.values,
+            name='Treatment Types'
+        ),
+        row=1, col=2
+    )
+
+    fig.update_layout(
+        title_text=f"Tumor Data for {organ.capitalize()}",
+        height=500,
+        width=1000,
+        showlegend=False
+    )
+
+    return fig
+
+
+
+
+    # Fallback (default empty plot)
     return go.Figure(layout=go.Layout(title="Click on an organ to view tumor information"))
+
 
 if __name__ == '__main__':
     app.run(debug=True)
