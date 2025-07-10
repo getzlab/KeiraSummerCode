@@ -28,6 +28,7 @@ def treatment_process_centered(filename, filename2):
     bio_count = pd.to_numeric(df['biospecimen_total_count'], errors='coerce').tolist()
     treat_count = pd.to_numeric(df['treatment_count'], errors='coerce').tolist()
     prim_site=df['tumor_primary_site'].tolist()
+    gender_value=df['gender'].tolist()
 
     
     new_dict = {'patient': patient_val,
@@ -39,7 +40,8 @@ def treatment_process_centered(filename, filename2):
                'drug':drug_type,
                'biocount':bio_count,
                'treatcount':treat_count,
-               'site':prim_site}
+               'site':prim_site,
+               'gender':gender_value}
     return new_dict
 
 tumordata=pd.DataFrame(treatment_process_centered('Juric_Rapid_Autopsy_MASTER-treatments1.csv', 'Juric_Rapid_Autopsy_MASTER-participants.txt'))
@@ -58,7 +60,8 @@ site_to_organ = {
     'PANCREAS (C25)': 'pancreas',
     'SKIN (C44)': 'skin',
     'STOMACH (C16)': 'stomach',
-    'THYROID GLAND (C73)': 'thyroid gland'
+    'THYROID GLAND (C73)': 'thyroid gland',
+    'PROSTATE GLAND (C61)': 'prostate gland'
 }
 
 
@@ -67,12 +70,20 @@ tumordata['organs'] = tumordata['site'].map(site_to_organ).fillna('Fail')
 
 fig,ax=plt.subplots(figsize=(6,10))
 
-allorgans = {
+allfemaleorgans = {
     'heart': 3, 'lung': 2, 'brain': 18, 'colon': 1, 'liver': 4, 'breast': 5, 
     'stomach': 6, 'esophagus': 7, 'ovary': 8, 'uterus': 9, 'pancreas': 10, 
     'lymph node': 11, 'gall bladder': 12, 'thyroid gland': 13, 'kidney': 14,
     'uterine cervix': 15, 'bronchus': 16, 'skin': 17
 }
+allmaleorgans={'heart': 3, 'lung': 2, 'brain': 18, 'colon': 1, 'liver': 4, 'breast': 5, 
+    'stomach': 6, 'esophagus': 7, 'pancreas': 8, 
+    'lymph node': 11, 'gall bladder': 12, 'thyroid gland': 13, 'kidney': 14,
+    'uterine cervix': 15, 'bronchus': 16, 'skin': 10, 'prostate gland':9
+    
+}
+
+
 
 anatomogram2 = pyanatomogram.Anatomogram('homo_sapiens.female')
 anatomogram2.highlight_tissues({'heart': 3, 'lung': 2, 'brain':18, 'colon': 1, 'liver': 4, 'breast':5, 
@@ -82,7 +93,7 @@ anatomogram2.highlight_tissues({'heart': 3, 'lung': 2, 'brain':18, 'colon': 1, '
 anatomogram2.to_matplotlib(ax=ax)
 
 
-annotations = {
+annotationsfemale = {
     'lung': ((0, 0), (48, 44)),
     'heart': ((0, 10), (52, 48)),
     'brain': ((25, 0), (50, 5)),
@@ -101,7 +112,25 @@ annotations = {
     'skin':((0,100),(40,110))
 }
 
-for organ, ((x_text, y_text), (x_arrow, y_arrow)) in annotations.items():
+annotationsmale = {
+    'lung': ((0, 0), (48, 44)),
+    'heart': ((0, 10), (52, 48)),
+    'brain': ((25, 0), (50, 5)),
+    'colon': ((0,95), (43, 85)),
+    'liver': ((0, 53), (43, 65)),
+    'breast': ((100, 30), (62, 50)),
+    'pancreas': ((100, 62), (51, 70)),
+    'esophagus': ((80, 20), (51, 40)),
+    'stomach': ((93, 50), (62, 64)),
+    'lymph node': ((75, 0), (56, 27)),
+    'gall bladder':((0,62),(49,70)),
+    'thyroid gland':((22,10),(52,31)),
+    'kidney':((0,85),(45,72)),
+    'skin':((0,100),(40,110)),
+    'prostate gland':((0,50),(0,10))
+}
+
+for organ, ((x_text, y_text), (x_arrow, y_arrow)) in annotationsfemale.items():
     ax.annotate(
         organ.capitalize(),
         xy=(x_arrow, y_arrow),
@@ -117,7 +146,7 @@ buf.seek(0)
 img = Image.open(buf)
 w, h = img.size
 
-annotations2 = {
+annotationsfemale2 = {
     'thyroid gland': (299, 240),
     'esophagus': (308, 275),
     'lymph node': (325, 222),
@@ -136,6 +165,24 @@ annotations2 = {
     'other':(0,0)
 }
 
+annotationsmale2={
+    'thyroid gland': (299, 240),
+    'esophagus': (308, 275),
+    'lymph node': (325, 222),
+    'lung': (285, 290),
+    'heart': (300, 304),
+    'colon': (270, 465),
+    'liver': (266, 375),
+    'breast': (345, 315),
+    'stomach': (312, 395),
+    'pancreas': (347, 372),
+    'gall bladder': (290, 395),
+    'kidney': (273, 405),
+    'skin': (255, 553),
+    'other':(0,0),
+    'prostate gland':(304,495)
+}
+
 buffer = io.BytesIO()
 img.save(buffer, format="PNG")
 encoded_image = base64.b64encode(buffer.getvalue()).decode()
@@ -152,7 +199,7 @@ scatter_fig.add_layout_image(
     )
 )
 
-for organ, (x, y) in annotations2.items():
+for organ, (x, y) in annotationsfemale2.items():
     scatter_fig.add_trace(go.Scatter(
         x=[x],
         y=[h - y],
@@ -238,16 +285,29 @@ def update_anatomy_figure(selected_patient):
 
     buf = io.BytesIO()
 
-
+    patient_info=tumordata[tumordata['patient']==selected_patient]
+    if patient_info.empty:
+        return make_figure_with_background(encoded_image)
+    gender = patient_info.iloc[0]['gender'].lower()
+    
     fig, ax = plt.subplots(figsize=(6, 10))
-    anatomogram = pyanatomogram.Anatomogram('homo_sapiens.female')
+    
+    if gender == 'female':
+        anatomogram = pyanatomogram.Anatomogram('homo_sapiens.female')
+        patient_organs = tumordata[tumordata['patient'] == selected_patient]['organs'].unique().tolist()
+        highlight_organs = {organ: allfemaleorgans[organ] for organ in patient_organs if organ in allfemaleorgans}
+        anatomogram.highlight_tissues(highlight_organs, cmap='twilight_shifted')
+        anatomogram.to_matplotlib(ax=ax)
+    else:
+        anatomogram = pyanatomogram.Anatomogram('homo_sapiens.male')
+        patient_organs = tumordata[tumordata['patient'] == selected_patient]['organs'].unique().tolist()
+        highlight_organs = {organ: allmaleorgans[organ] for organ in patient_organs if organ in allmaleorgans}
+        anatomogram.highlight_tissues(highlight_organs, cmap='twilight_shifted')
+        anatomogram.to_matplotlib(ax=ax)
+    
 
-    patient_organs = tumordata[tumordata['patient'] == selected_patient]['organs'].unique().tolist()
-    print(patient_organs)
-    highlight_organs = {organ: allorgans[organ] for organ in patient_organs if organ in allorgans}
-    print(highlight_organs)
-    anatomogram.highlight_tissues(highlight_organs, cmap='twilight_shifted')
-    anatomogram.to_matplotlib(ax=ax)
+
+   
 
  
     plt.savefig(buf, format='png')
@@ -271,19 +331,35 @@ def update_anatomy_figure(selected_patient):
         )
     )
 
+    if gender == 'female':
+        for organ, (x, y_pixel) in annotationsfemale2.items():
+            if organ in highlight_organs:
+                fig_out.add_trace(go.Scatter(
+                    x=[x],
+                    y=[h - y_pixel],
+                    mode='markers',
+                    marker=dict(size=8, color='black'),
+                    name=organ,
+                    text=organ,
+                    hoverinfo='text',
+                    customdata=[organ]
+                ))
+    else:
+        for organ, (x, y_pixel) in annotationsmale2.items():
+            if organ in highlight_organs:
+                fig_out.add_trace(go.Scatter(
+                    x=[x],
+                    y=[h - y_pixel],
+                    mode='markers',
+                    marker=dict(size=8, color='black'),
+                    name=organ,
+                    text=organ,
+                    hoverinfo='text',
+                    customdata=[organ]
+                ))
+        
+        
 
-    for organ, (x, y_pixel) in annotations2.items():
-        if organ in highlight_organs:
-            fig_out.add_trace(go.Scatter(
-                x=[x],
-                y=[h - y_pixel],
-                mode='markers',
-                marker=dict(size=8, color='black'),
-                name=organ,
-                text=organ,
-                hoverinfo='text',
-                customdata=[organ]
-            ))
 
     fig_out.update_layout(
         width=w,
@@ -305,7 +381,7 @@ def update_anatomy_figure(selected_patient):
     Input('patient-dropdown', 'value')]
 )
 
-def display_organ_data(clickData, selected_patientc):
+def display_organ_data(clickData, selected_patient):
 
     
     if clickData is None:
