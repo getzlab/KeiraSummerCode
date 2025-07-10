@@ -44,40 +44,41 @@ def treatment_process_centered(filename, filename2):
 
 tumordata=pd.DataFrame(treatment_process_centered('Juric_Rapid_Autopsy_MASTER-treatments1.csv', 'Juric_Rapid_Autopsy_MASTER-participants.txt'))
 
-conditions = [
-    (tumordata['site'] == 'BREAST (C50)'),
-    (tumordata['site'] == 'COLON (C18)'),
-    (tumordata['site'] == 'BRONCHUS AND LUNG (C34)'),
-    (tumordata['site'] == 'CORPUS UTERI (C54)'),
-    (tumordata['site'] == 'ESOPHAGUS (C15)'),
-    (tumordata['site'] == 'GALLBLADDER (C23)'),
-    (tumordata['site'] == 'KIDNEY (C64)'),
-    (tumordata['site'] == 'LIVER AND INTRAHEPATIC BILE DUCTS (C22)'),
-    (tumordata['site'] == 'LYMPH NODES (C77)'),
-    (tumordata['site'] == 'OTHER AND UNSPECIFIED PARTS OF BILIARY TRACT (C24)'),
-    (tumordata['site'] == 'OVARY (C56)'),
-    (tumordata['site'] == 'PANCREAS (C25)'),
-    (tumordata['site'] == 'SKIN (C44)'),
-    (tumordata['site'] == 'STOMACH (C16))'),
-    (tumordata['site'] == 'THYROID GLAND (C73)'),
-    (tumordata['site'] == 'URETER (C66)'),
-    (tumordata['site'] == 'PROSTATE GLAND (C61)'),
-]
-values = ['breast', 'colon', 'lung', 'uterus', 'esophagus','gall bladder','kidney','liver','lymph node','other','ovary','pancreas','skin','stomach','thyroid gland', 'other', 'other']
+site_to_organ = {
+    'BREAST (C50)': 'breast',
+    'COLON (C18)': 'colon',
+    'BRONCHUS AND LUNG (C34)': 'lung',
+    'CORPUS UTERI (C54)': 'uterus',
+    'ESOPHAGUS (C15)': 'esophagus',
+    'GALLBLADDER (C23)': 'gall bladder',
+    'KIDNEY (C64)': 'kidney',
+    'LIVER AND INTRAHEPATIC BILE DUCTS (C22)': 'liver',
+    'LYMPH NODES (C77)': 'lymph node',
+    'OVARY (C56)': 'ovary',
+    'PANCREAS (C25)': 'pancreas',
+    'SKIN (C44)': 'skin',
+    'STOMACH (C16)': 'stomach',
+    'THYROID GLAND (C73)': 'thyroid gland'
+}
 
-tumordata['organs'] = np.select(conditions, values, default='Fail')
+
+tumordata['organs'] = tumordata['site'].map(site_to_organ).fillna('Fail')
+
+
 fig,ax=plt.subplots(figsize=(6,10))
 
-allorgans={'heart': 18, 'lung': 2, 'brain': 3, 'colon': 1, 'liver': 4, 'breast':5, 
-            'stomach':6,'esophagus':7, 'ovary':8, 'uterus':9, 'pancreas':10, 
-            'lymph node':11,'gall bladder':12,'thyroid gland':13,'kidney':14,
-            'uterine cervix':15, 'bronchus':16, 'skin':17 }
+allorgans = {
+    'heart': 3, 'lung': 2, 'brain': 18, 'colon': 1, 'liver': 4, 'breast': 5, 
+    'stomach': 6, 'esophagus': 7, 'ovary': 8, 'uterus': 9, 'pancreas': 10, 
+    'lymph node': 11, 'gall bladder': 12, 'thyroid gland': 13, 'kidney': 14,
+    'uterine cervix': 15, 'bronchus': 16, 'skin': 17
+}
 
 anatomogram2 = pyanatomogram.Anatomogram('homo_sapiens.female')
-anatomogram2.highlight_tissues({'heart': 18, 'lung': 2, 'brain': 3, 'colon': 1, 'liver': 4, 'breast':5, 
+anatomogram2.highlight_tissues({'heart': 3, 'lung': 2, 'brain':18, 'colon': 1, 'liver': 4, 'breast':5, 
                                 'stomach':6,'esophagus':7, 'ovary':8, 'uterus':9, 'pancreas':10, 
                                 'lymph node':11,'gall bladder':12,'thyroid gland':13,'kidney':14,
-                               'uterine cervix':15, 'bronchus':16, 'skin':17}, cmap='twilight_shifted')
+                               'uterine cervix':15, 'bronchus':16, 'skin':17}, cmap='gist_heat_r')
 anatomogram2.to_matplotlib(ax=ax)
 
 
@@ -88,11 +89,11 @@ annotations = {
     'colon': ((0,95), (43, 85)),
     'liver': ((0, 53), (43, 65)),
     'breast': ((100, 30), (62, 50)),
-    'stomach': ((100, 62), (51, 70)),
+    'pancreas': ((100, 62), (51, 70)),
     'esophagus': ((80, 20), (51, 40)),
     'uterus': ((95, 78), (50.5, 88.5)),
     'ovary': ((90, 88), (58, 90.75)),
-    'pancreas': ((93, 50), (62, 64)),
+    'stomach': ((93, 50), (62, 64)),
     'lymph node': ((75, 0), (56, 27)),
     'gall bladder':((0,62),(49,70)),
     'thyroid gland':((22,10),(52,31)),
@@ -119,7 +120,6 @@ w, h = img.size
 annotations2 = {
     'thyroid gland': (299, 240),
     'esophagus': (308, 275),
-    'brain': (290, 139),
     'lymph node': (325, 222),
     'lung': (285, 290),
     'heart': (300, 304),
@@ -132,7 +132,8 @@ annotations2 = {
     'pancreas': (347, 372),
     'gall bladder': (290, 395),
     'kidney': (273, 405),
-    'skin': (255, 553)
+    'skin': (255, 553),
+    'other':(0,0)
 }
 
 buffer = io.BytesIO()
@@ -242,7 +243,9 @@ def update_anatomy_figure(selected_patient):
     anatomogram = pyanatomogram.Anatomogram('homo_sapiens.female')
 
     patient_organs = tumordata[tumordata['patient'] == selected_patient]['organs'].unique().tolist()
+    print(patient_organs)
     highlight_organs = {organ: allorgans[organ] for organ in patient_organs if organ in allorgans}
+    print(highlight_organs)
     anatomogram.highlight_tissues(highlight_organs, cmap='twilight_shifted')
     anatomogram.to_matplotlib(ax=ax)
 
@@ -275,7 +278,7 @@ def update_anatomy_figure(selected_patient):
                 x=[x],
                 y=[h - y_pixel],
                 mode='markers',
-                marker=dict(size=8, color='white'),
+                marker=dict(size=8, color='black'),
                 name=organ,
                 text=organ,
                 hoverinfo='text',
