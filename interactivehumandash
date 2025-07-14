@@ -18,6 +18,7 @@ from matplotlib.lines import Line2D
 import plotly.express as px
 import plotly.io as pio
 import dash_bootstrap_components as dbc
+from dash import Dash, dash_table
 
 matplotlib.use('Agg')
 
@@ -25,13 +26,15 @@ matplotlib.use('Agg')
 #This function creates a merged dictonary which can be later called as a data frame
 #Useful for both creating a anatomy figure and the swimmers plot
 #BUT, does not include every single variable in these two data sets, if another variable is needed must add it here
-def treatment_process_centered(filename, filename2, filename3):
+def treatment_process_centered(filename, filename2, filename3, filename4):
 
     df = pd.read_csv(filename, sep=',')
     df2=pd.read_csv(filename2, sep='\t')
     df3=pd.read_csv(filename3, sep='\t')
-    df=pd.merge(df,df2, on='participant_id', how='inner')
-    df=pd.merge(df,df3, on='participant_id', how='inner')
+    df4=pd.read_csv(filename4, sep='\t')
+    df=pd.merge(df,df2, on='participant_id', how='inner',  suffixes=('', '_df2'))
+    df=pd.merge(df,df3, on='participant_id', how='inner',  suffixes=('', '_df3'))
+    df=pd.merge(df,df4, on='participant_id', how='inner',  suffixes=('', '_df4'))
     print(df)
     patient_val = df['participant_id'].tolist()
     treatment_val = df['categories'].tolist()
@@ -48,7 +51,9 @@ def treatment_process_centered(filename, filename2, filename3):
     analytetype=df['analyte_type'].tolist()
     experimentalstrategy=df['experimental_strategy'].tolist()
     ulpfrac=df['ulp_tumor_fraction'].tolist()
-
+    collectiondate=df['collection_date_dfd'].tolist()
+    sub_material_type=df['submitted_material_type'].tolist()
+    og_material_type=df['original_material_type'].tolist()
     
     new_dict = {'patient': patient_val,
                'treatment': treatment_val,
@@ -64,7 +69,10 @@ def treatment_process_centered(filename, filename2, filename3):
                'tum_nor':tumorornormal,
                'analyte':analytetype,
                'strategy':experimentalstrategy,
-               'ulp_tumor':ulpfrac}
+               'ulp_tumor':ulpfrac,
+               'collection':collectiondate,
+               'submaterial':sub_material_type,
+               'ogmaterial':og_material_type}
     return new_dict
 
 
@@ -119,7 +127,7 @@ def make_figure_with_background(base64_img):
     return fig
 
 #Loading in the Data Set
-tumordata=pd.DataFrame(treatment_process_centered('Juric_Rapid_Autopsy_MASTER-treatments1.csv', 'Juric_Rapid_Autopsy_MASTER-participants.txt', 'samples.6i2fn.tsv'))
+tumordata=pd.DataFrame(treatment_process_centered('Juric_Rapid_Autopsy_MASTER-treatments1.csv', 'Juric_Rapid_Autopsy_MASTER-participants.txt', 'samples.6i2fn.tsv', 'biospecimens.tz83tx.tsv'))
 tumordata['tx_end'] = pd.to_numeric(tumordata['tx_end'], errors='coerce')
 xmax = math.ceil(tumordata['tx_end'].max())
 patient_pos=generate_patientYpos(tumordata)
@@ -324,7 +332,15 @@ app.layout = html.Div([
    html.Div([
         dcc.Graph(id='swimmer-plot')
     ], style={'marginBottom': '20px'}),
-
+    html.Div([
+       dash_table.DataTable(
+           id='tableinfo',
+           columns=[],
+           data=[],
+           style_table={'overflowX':'auto'},
+           style_cell={'textAlign':'left', 'minWidth': '100px', 'width':'150px', 'maxWidth':'200px'},
+           page_size=10)
+    ], style={'flex':1}),
     html.Div([
         html.Div([
             dcc.Graph(id='anatomy-plot', figure=scatter_fig)
@@ -333,10 +349,7 @@ app.layout = html.Div([
         html.Div([
             dcc.Graph(id='organ-data-plot')
         ], style={'flex': '1'})
-    ], style={'display': 'flex', 'flexDirection': 'row'}),
-    html.Div([
-        dcc.Graph(id='stackbarplot')
-    ])
+    ], style={'display': 'flex', 'flexDirection': 'row'})
 ])
 
 
@@ -483,9 +496,9 @@ def display_organ_data(clickData, selected_patient):
         return go.Figure(layout=go.Layout(title=f"No tumor categories found for {organ.capitalize()}"))
 
     fig = make_subplots(
-        rows=4, cols=2,
-        subplot_titles=("Patient Tumor vs Normal", "Cohort Tumor vs Normal", "Patient Analyte Types", "Cohort Analyte Types", "Patient Strategies", "Cohort Strategies", "Cohort Bar Chart"),
-        specs=[[{"type": "domain"}, {"type": "domain"}], [{"type": "domain"}, {"type": "domain"}],[{"type": "domain"}, {"type": "domain"}], [{"type": "xy"}, {"type": "xy"}]]
+        rows=3, cols=2,
+        subplot_titles=("Patient Tumor vs Normal", "Cohort Tumor vs Normal", "Patient Analyte Types", "Cohort Analyte Types", "Patient Strategies", "Cohort Strategies"),
+        specs=[[{"type": "domain"}, {"type": "domain"}], [{"type": "domain"}, {"type": "domain"}],[{"type": "domain"}, {"type": "domain"}]]
     )
     #tumor pie chart
     if not tumorspec.empty:
@@ -553,29 +566,12 @@ def display_organ_data(clickData, selected_patient):
             row=3, col=1
         )
     
-    fig.add_trace(
-        go.Bar(
-            x=exper_counts.index,
-            y=exper_counts.values,  
-            name='Cohort Strategies'  
-        ),  
-        row=4, col=1
-    )
-        
-    fig.add_trace(
-        go.Bar(
-            x=experspec.index,
-            y=experspec.values,  
-            name='Patient Strategies'  
-        ),  
-        row=4, col=2
-    )   
     fig.update_layout(
         title_text=f"Tumor Data for {organ.capitalize()}",
         title_pad=dict(t=60),
         height=500,
         width=1000,
-        barmode="stack"
+        showlegend=False
     )
 
     return fig
@@ -693,71 +689,30 @@ def update_swimmer_figure(selected_patient):
 
 
 @app.callback(
-    Output('stackbarplot', 'figure'),
-    [Input('anatomy-plot', 'clickData'),
-    Input('patient-dropdown', 'value')]
+    Output('tableinfo', 'columns'),
+    Output('tableinfo', 'data'),
+    Input('patient-dropdown', 'value')
 )
 
-def create_grouped_bar_chart(clickData,selected_patient):
-    if clickData is None or selected_patient is None:
-        return go.Figure(layout=go.Layout(title="Click on an organ to view tumor information"))
-
-    try:
-        organ = clickData['points'][0].get('customdata')
-        if organ is None:
-            raise ValueError("No valid organ selected.")
-    except (IndexError, KeyError, TypeError, ValueError):
-        return go.Figure(layout=go.Layout(title="Invalid click. Please click on an organ marker."))
+def createtable(selected_patient):
+    if selected_patient is None:
+        return [],[]
 
   
     patient_data = tumordata[tumordata['patient'] == selected_patient]
     if patient_data.empty:
-        return go.Figure(layout=go.Layout(title=f"No data for patient {selected_patient}"))
+        return [],[]
 
 
-    filtered_df = tumordata[tumordata['organs'] == organ].copy()
+    displaycolumns=['patient', 'drug','strategy','strategy', 'tum_nor', 'ogmaterial', 'submaterial', 'collection']
 
 
-    filtered_df['biocount'] = pd.to_numeric(filtered_df['biocount'], errors='coerce')
-    filtered_df['treatcount'] = pd.to_numeric(filtered_df['treatcount'], errors='coerce')
-    filtered_df = filtered_df.dropna(subset=['biocount', 'treatcount'])
+    patient_data=patient_data[displaycolumns]
 
-    if filtered_df.empty:
-        return go.Figure(layout=go.Layout(title=f"No tumor data available for {organ.capitalize()}"))
-  
-    exper_counts=filtered_df['strategy'].value_counts()
-    experspec=patient_data['strategy'].value_counts()
-    ulpcohort=filtered_df['ulp_tumor'].value_counts()
-    ulppatient=patient_data['ulp_tumor'].value_counts()
-    
-    fig = go.Figure()
+    columns=[{'name':col,'id':col} for col in patient_data.columns]
+    data=patient_data.to_dict('records')
 
-    fig.add_trace(go.Bar(
-        x=ulpcohort.index,
-        y=ulpcohort.values,
-        name='Patient Strategies',
-        marker_color='palevioletred',
-        opacity=0.75
-    ))
-
-    fig.add_trace(go.Bar(
-        x=ulppatient.index,
-        y=ulppatient.values,
-        name='Cohort Strategies',
-        marker_color='lightpink',
-        opacity=0.75
-    ))
-
-    fig.update_layout(
-        barmode='overlay',
-        title='Patient vs Cohort Strategies',
-        xaxis_title='Strategy',
-        yaxis_title='Count',
-        height=500,
-        width=800
-    )
-
-    return fig
+    return columns,data
 
 
 
